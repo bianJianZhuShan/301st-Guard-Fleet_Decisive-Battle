@@ -1,0 +1,45 @@
+# Unreal Engine generated folders
+Binaries/
+DerivedDataCache/
+Intermediate/
+Saved/
+
+Plugins/**/Binaries/
+Plugins/**/DerivedDataCache/
+Plugins/**/Intermediate/
+Plugins/**/Saved/
+
+*.uatbuildrecord
+*.pdb
+*.obj
+*.lib
+*.exp
+*.ilk
+*.idb
+*.tlog
+*.lastbuildstate
+
+# Visual Studio / IDE
+.vs/
+*.VC.db
+*.VC.opendb
+*.suo
+*.user
+*.userosscache
+*.sln
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.opensdf
+*.sdf
+*.ipch
+
+# Logs / temp
+*.log
+*.tmp
+UpgradeLog.htm
+
+# Editor settings
+.vscode/
+.idea/
+*.code-workspace
