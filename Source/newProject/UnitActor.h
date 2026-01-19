@@ -5,6 +5,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "TeamTypes.h"
 #include "UnitActor.generated.h"
 
 // 前向声明
@@ -92,9 +93,22 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Unit|State")
 	bool bIsDead;
 
-	// 是否为敌方单位（不可选中，灰色）
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Unit|State")
+	// 所属队伍ID（0=蓝方, 1=红方, 以此类推）
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Unit|Team")
+	int32 TeamID;
+
+	// 是否为敌方单位（向后兼容，根据TeamID自动计算）
+	// 在1v1模式中：TeamID=0 为己方，TeamID=1 为敌方
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Unit|Team")
 	bool bIsEnemy;
+
+	// 设置队伍ID（会自动更新bIsEnemy和材质颜色）
+	UFUNCTION(BlueprintCallable, Category = "Unit|Team")
+	void SetTeamID(int32 NewTeamID);
+
+	// 获取队伍颜色
+	UFUNCTION(BlueprintCallable, Category = "Unit|Team")
+	FLinearColor GetTeamColor() const;
 
 	// ========== 战斗属性 ==========
 

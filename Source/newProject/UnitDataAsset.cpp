@@ -30,9 +30,9 @@ UUnitDataAsset::UUnitDataAsset()
 	MeshRotation = FRotator::ZeroRotator;
 
 	// 默认颜色
-	FriendlyColor = FLinearColor(0.2f, 0.4f, 0.9f, 1.0f);  // 坐席1：蓝色
-	EnemyColor = FLinearColor(0.9f, 0.25f, 0.2f, 1.0f);    // 坐席2：红色
-	SelectedColor = FLinearColor(0.0f, 1.0f, 0.5f, 1.0f);  // 亮绿色
+	FriendlyColor = FLinearColor(0.2f, 0.4f, 0.9f, 1.0f);  // Team 0：蓝色
+	EnemyColor = FLinearColor(0.9f, 0.25f, 0.2f, 1.0f);    // Team 1：红色
+	SelectedColor = FLinearColor(0.0f, 1.0f, 0.5f, 1.0f);  // 选中高亮：亮绿色
 
 	// 默认槽位
 	SmallSlots = 0;

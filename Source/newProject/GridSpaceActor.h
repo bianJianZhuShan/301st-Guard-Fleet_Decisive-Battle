@@ -100,6 +100,20 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grid|Visualization")
 	bool bShowAxisIndicators;
 
+	// ========== 编辑器预览设置 ==========
+
+	/** 在编辑器中显示网格（不需要运行游戏） */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grid|Editor Preview")
+	bool bShowGridInEditor = true;
+
+	/** 在编辑器中显示预览单位 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grid|Editor Preview")
+	bool bShowPreviewUnits = false;
+
+	/** 编辑器网格线透明度 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grid|Editor Preview", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+	float EditorGridOpacity = 0.3f;
+
 	// 顶点颜色
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grid|Visualization")
 	FLinearColor VertexColor;

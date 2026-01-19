@@ -150,9 +150,15 @@ void AGridSpaceActor::OnConstruction(const FTransform& Transform)
 
 		FVector Origin = GetActorLocation();
 
-		if (bShowGridLines)
+		// 编辑器预览模式：始终显示网格（使用编辑器透明度）
+		// 运行时模式：根据 bShowGridLines 设置
+		bool bShouldShowGrid = bShowGridLines || bShowGridInEditor;
+		if (bShouldShowGrid)
 		{
-			FColor LineColor = GridLineColor.ToFColor(true);
+			// 使用编辑器透明度调整颜色
+			FLinearColor EditorLineColor = GridLineColor;
+			EditorLineColor.A = EditorGridOpacity;
+			FColor LineColor = EditorLineColor.ToFColor(true);
 
 			// 绘制X方向的线
 			for (int32 Y = 0; Y < GridSize.Y; Y++)
@@ -780,8 +786,35 @@ AUnitActor* AGridSpaceActor::SpawnUnitAtGridPosition(FIntVector GridPos, const F
 		
 		NewUnit->InitializeAtGridPosition(this, GridPos);
 		
-		// 根据舰船类型设置缩放比例
-		NewUnit->ApplyShipTypeScale();
+		// 从配置系统加载模型
+		const FShipDataConfig* ShipConfig = FShipDataManager::Get().GetConfig(ShipType);
+		if (ShipConfig)
+		{
+			const FShipMeshConfig& MeshConfig = ShipConfig->GetMeshConfig(bEnemy);
+			if (MeshConfig.IsValid())
+			{
+				UStaticMesh* CustomMesh = LoadObject<UStaticMesh>(nullptr, *MeshConfig.MeshPath);
+				if (CustomMesh && NewUnit->CubeMeshComponent)
+				{
+					NewUnit->CubeMeshComponent->SetStaticMesh(CustomMesh);
+					NewUnit->CubeMeshComponent->SetRelativeScale3D(MeshConfig.Scale);
+					NewUnit->CubeMeshComponent->SetRelativeLocation(MeshConfig.Offset);
+					NewUnit->CubeMeshComponent->SetRelativeRotation(MeshConfig.Rotation);
+					UE_LOG(LogTemp, Log, TEXT("Applied custom mesh for %s unit '%s': %s"), 
+						bEnemy ? TEXT("enemy") : TEXT("friendly"), *UnitName, *MeshConfig.MeshPath);
+				}
+				else
+				{
+					UE_LOG(LogTemp, Warning, TEXT("Failed to load mesh for unit '%s': %s"), *UnitName, *MeshConfig.MeshPath);
+				}
+			}
+		}
+		
+		// 根据舰船类型设置缩放比例（如果没有自定义模型配置）
+		if (!ShipConfig || !ShipConfig->GetMeshConfig(bEnemy).IsValid())
+		{
+			NewUnit->ApplyShipTypeScale();
+		}
 		
 		// 设置敌方标记并更新材质（在BeginPlay之后调用）
 		if (bEnemy)

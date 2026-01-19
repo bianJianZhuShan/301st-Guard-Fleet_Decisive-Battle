@@ -2,14 +2,53 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/GameStateBase.h"
+#include "TeamTypes.h"
 #include "TacticalGameState.generated.h"
 
+/**
+ * 战术座席枚举
+ * 用于标识玩家在游戏中的座席位置
+ * 
+ * 命名规范：
+ * - Seat0, Seat1... 表示玩家座席（对应TeamID）
+ * - Spectator 表示观战者
+ * 
+ * 模式支持：
+ * - 1v1: Seat0 vs Seat1
+ * - 2v2: Seat0+Seat1 vs Seat2+Seat3 (同队伍共享回合)
+ * - PvE: Seat0-SeatN vs AI (AI不占用座席)
+ */
 UENUM(BlueprintType)
 enum class ETacticalSeat : uint8
 {
-	Player UMETA(DisplayName = "Player"),
-	AI UMETA(DisplayName = "AI"),
-	// 联机模式下：Host = Player, Client = AI（敌方）
+	/** 座席0 - 默认为主机/蓝方 */
+	Seat0 UMETA(DisplayName = "座席0 (蓝方)"),
+	
+	/** 座席1 - 默认为客户端/红方 */
+	Seat1 UMETA(DisplayName = "座席1 (红方)"),
+	
+	/** 座席2 - 2v2或多v多模式 */
+	Seat2 UMETA(DisplayName = "座席2"),
+	
+	/** 座席3 - 2v2或多v多模式 */
+	Seat3 UMETA(DisplayName = "座席3"),
+	
+	/** 座席4-7 - 大规模模式 */
+	Seat4 UMETA(DisplayName = "座席4"),
+	Seat5 UMETA(DisplayName = "座席5"),
+	Seat6 UMETA(DisplayName = "座席6"),
+	Seat7 UMETA(DisplayName = "座席7"),
+	
+	/** 观战者 - 只能观看，不能操作 */
+	Spectator UMETA(DisplayName = "观战者"),
+	
+	/** 无效/未分配 */
+	None UMETA(DisplayName = "未分配"),
+	
+	// ========== 向后兼容别名 ==========
+	// 这些别名保留以确保旧代码编译通过
+	Player = Seat0 UMETA(Hidden),
+	AI = Seat1 UMETA(Hidden)
 };
 
 UCLASS()

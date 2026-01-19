@@ -715,3 +715,56 @@ void AUnitActor::SetOutlineVisible(bool bVisible)
 
 	UE_LOG(LogTemp, Log, TEXT("UnitActor '%s' outline: %s"), *UnitName, bVisible ? TEXT("ON") : TEXT("OFF"));
 }
+
+void AUnitActor::SetTeamID(int32 NewTeamID)
+{
+	TeamID = NewTeamID;
+	
+	// 更新向后兼容的 bIsEnemy 标记
+	// 在1v1模式中：TeamID=0 为己方（蓝方），TeamID>=1 为敌方
+	bIsEnemy = (TeamID != 0);
+	
+	// 更新材质颜色
+	if (UnitMaterialInstance)
+	{
+		FLinearColor Color = GetTeamColor();
+		UnitMaterialInstance->SetVectorParameterValue(TEXT("Color"), Color);
+		CubeMeshComponent->SetMaterial(0, UnitMaterialInstance);
+	}
+	
+	UE_LOG(LogTemp, Log, TEXT("UnitActor '%s' TeamID set to %d (bIsEnemy=%s)"), 
+		*UnitName, TeamID, bIsEnemy ? TEXT("true") : TEXT("false"));
+}
+
+FLinearColor AUnitActor::GetTeamColor() const
+{
+	// 预定义队伍颜色
+	static const TArray<FLinearColor> TeamColors = {
+		FLinearColor(0.2f, 0.4f, 0.9f, 1.0f),   // Team 0: 蓝色
+		FLinearColor(0.9f, 0.25f, 0.2f, 1.0f),  // Team 1: 红色
+		FLinearColor(0.2f, 0.8f, 0.3f, 1.0f),   // Team 2: 绿色
+		FLinearColor(0.9f, 0.7f, 0.1f, 1.0f),   // Team 3: 黄色
+		FLinearColor(0.7f, 0.3f, 0.9f, 1.0f),   // Team 4: 紫色
+		FLinearColor(0.1f, 0.8f, 0.8f, 1.0f),   // Team 5: 青色
+		FLinearColor(0.9f, 0.5f, 0.2f, 1.0f),   // Team 6: 橙色
+		FLinearColor(0.9f, 0.4f, 0.6f, 1.0f),   // Team 7: 粉色
+	};
+	
+	// 特殊队伍ID处理
+	if (TeamID == ETeamID::Neutral)
+	{
+		return FLinearColor(0.5f, 0.5f, 0.5f, 1.0f); // 灰色
+	}
+	if (TeamID == ETeamID::HostileAI)
+	{
+		return FLinearColor(0.6f, 0.1f, 0.1f, 1.0f); // 深红色
+	}
+	if (TeamID < 0)
+	{
+		return FLinearColor(0.3f, 0.3f, 0.3f, 1.0f); // 深灰色
+	}
+	
+	// 正常队伍ID
+	int32 ColorIndex = TeamID % TeamColors.Num();
+	return TeamColors[ColorIndex];
+}
