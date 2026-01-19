@@ -97,28 +97,28 @@ public:
 		return (FirstSeat == ETacticalSeat::Player) ? ETacticalSeat::AI : ETacticalSeat::Player;
 	}
 
-	UPROPERTY(BlueprintReadOnly, Category = "Tactical|Economy")
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Tactical|Economy")
 	int32 PlayerAPMax = 5;
 
-	UPROPERTY(BlueprintReadOnly, Category = "Tactical|Economy")
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Tactical|Economy")
 	int32 PlayerAPCurrent = 5;
 
-	UPROPERTY(BlueprintReadOnly, Category = "Tactical|Economy")
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Tactical|Economy")
 	int32 PlayerCounterMax = 1;
 
-	UPROPERTY(BlueprintReadOnly, Category = "Tactical|Economy")
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Tactical|Economy")
 	int32 PlayerCounterCurrent = 1;
 
-	UPROPERTY(BlueprintReadOnly, Category = "Tactical|Economy")
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Tactical|Economy")
 	int32 AIAPMax = 5;
 
-	UPROPERTY(BlueprintReadOnly, Category = "Tactical|Economy")
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Tactical|Economy")
 	int32 AIAPCurrent = 5;
 
-	UPROPERTY(BlueprintReadOnly, Category = "Tactical|Economy")
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Tactical|Economy")
 	int32 AICounterMax = 1;
 
-	UPROPERTY(BlueprintReadOnly, Category = "Tactical|Economy")
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Tactical|Economy")
 	int32 AICounterCurrent = 1;
 
 	UFUNCTION(BlueprintCallable, Category = "Tactical|Economy")

@@ -23,6 +23,16 @@ void ATacticalGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& O
 	DOREPLIFETIME(ATacticalGameState, bIsInCounterWindow);
 	DOREPLIFETIME(ATacticalGameState, CounterWindowTimeRemaining);
 	DOREPLIFETIME(ATacticalGameState, CounterSeat);
+	
+	// 经济系统同步
+	DOREPLIFETIME(ATacticalGameState, PlayerAPMax);
+	DOREPLIFETIME(ATacticalGameState, PlayerAPCurrent);
+	DOREPLIFETIME(ATacticalGameState, PlayerCounterMax);
+	DOREPLIFETIME(ATacticalGameState, PlayerCounterCurrent);
+	DOREPLIFETIME(ATacticalGameState, AIAPMax);
+	DOREPLIFETIME(ATacticalGameState, AIAPCurrent);
+	DOREPLIFETIME(ATacticalGameState, AICounterMax);
+	DOREPLIFETIME(ATacticalGameState, AICounterCurrent);
 }
 
 static int32 CalcAPMaxForTurn(int32 TurnNumber)

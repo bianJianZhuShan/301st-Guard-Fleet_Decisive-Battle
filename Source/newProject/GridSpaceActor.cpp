@@ -143,16 +143,22 @@ void AGridSpaceActor::OnConstruction(const FTransform& Transform)
 		}
 	}
 
-	// 在编辑器中绘制网格线
+	// 在编辑器中绘制网格线（仅在编辑器非运行时显示）
 	if (EditorGridLinesComponent)
 	{
 		EditorGridLinesComponent->Flush();
 
+		// 运行时不显示编辑器网格线（运行时使用Tick中的DrawGridLines）
+		bool bIsPlaying = GetWorld() && GetWorld()->IsGameWorld();
+		if (bIsPlaying)
+		{
+			return;
+		}
+
 		FVector Origin = GetActorLocation();
 
-		// 编辑器预览模式：始终显示网格（使用编辑器透明度）
-		// 运行时模式：根据 bShowGridLines 设置
-		bool bShouldShowGrid = bShowGridLines || bShowGridInEditor;
+		// 编辑器预览模式：根据 bShowGridInEditor 设置
+		bool bShouldShowGrid = bShowGridInEditor;
 		if (bShouldShowGrid)
 		{
 			// 使用编辑器透明度调整颜色

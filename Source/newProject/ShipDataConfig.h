@@ -186,7 +186,7 @@ private:
 			FRotator(0.0f, 0.0f, 0.0f)               // 旋转偏移
 		);
 		FShipMeshConfig FrigateEnemyMesh(
-			TEXT("/Game/Game/Art/Ships/text2.text2"), // 敌方模型路径
+			TEXT("/Game/Game/Art/Ships/TEXT.TEXT"), // 敌方模型路径（text2未导入，暂用同一模型）
 			FVector(1.0f, 1.0f, 1.0f),                // 缩放
 			FVector(0.0f, 0.0f, 75.0f),               // 位置偏移
 			FRotator(0.0f, 0.0f, 0.0f)                // 旋转偏移
