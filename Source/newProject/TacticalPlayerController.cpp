@@ -696,25 +696,17 @@ void ATacticalPlayerController::OnLeftMouseClick()
 	// 2.5) 如果当前有选中的单位且处于攻击模式，处理攻击
 	if (SelectedUnit && SelectedUnit->bIsInAttackMode && GridSpace)
 	{
-		// 检查是否点击了单位（可攻击敌方或友方，用于战术目的）
+		// 攻击模式下只能点击敌方舰船模型进行攻击，不能攻击空地
 		AUnitActor* HitUnit = bHit ? Cast<AUnitActor>(HitActor) : nullptr;
 		if (HitUnit && HitUnit != SelectedUnit && !HitUnit->bIsDead)
 		{
-			// 检查目标是否在攻击范围内
-			if (SelectedUnit->IsPositionInAttackRange(HitUnit->CurrentGridPosition))
+			// 判断目标是否为敌方单位（与己方不同阵营）
+			bool bIsEnemyTarget = (MySeat == ETacticalSeat::Player && HitUnit->bIsEnemy) ||
+			                      (MySeat == ETacticalSeat::AI && !HitUnit->bIsEnemy);
+			if (bIsEnemyTarget && SelectedUnit->IsPositionInAttackRange(HitUnit->CurrentGridPosition))
 			{
 				// 传递目标Actor，这样视线检测时目标舰船不会被认为是阻挡
 				ExecuteAttack(HitUnit->GetActorLocation(), HitUnit);
-			}
-		}
-		else
-		{
-			// 点击空地也可以攻击（用于战术目的）
-			int32 HoveredIndex = GridSpace->HoveredVertexIndex;
-			if (HoveredIndex >= 0 && GridSpace->IsVertexHighlighted(HoveredIndex))
-			{
-				FGridVertex Vertex = GridSpace->GetVertexAtIndex(HoveredIndex);
-				ExecuteAttack(Vertex.WorldPosition);
 			}
 		}
 		// 攻击模式下，无论点击什么都不切换选中，保持当前单位

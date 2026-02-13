@@ -34,8 +34,8 @@ AUnitActor::AUnitActor()
 
 	// 设置立方体为长方体形状 (水平放置，沿X轴延伸) - 放大以适应1000单位间距
 	CubeMeshComponent->SetRelativeScale3D(FVector(4.0f, 1.5f, 1.5f));
-	// 立方体中心对齐到原点
-	CubeMeshComponent->SetRelativeLocation(FVector(0.0f, 0.0f, 75.0f));
+	// 立方体中心对齐到网格点（0,0,0 = 模型中心在网格点正中）
+	CubeMeshComponent->SetRelativeLocation(FVector::ZeroVector);
 
 	// 启用碰撞检测（用于鼠标点击）
 	CubeMeshComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
@@ -674,9 +674,8 @@ void AUnitActor::ApplyShipTypeScale()
 	FVector FinalScale = BaseScale * ScaleMultiplier;
 	CubeMeshComponent->SetRelativeScale3D(FinalScale);
 
-	// 调整 Z 轴偏移使船体底部对齐（基准高度75，按比例缩放）
-	float ZOffset = 75.0f * ScaleMultiplier;
-	CubeMeshComponent->SetRelativeLocation(FVector(0.0f, 0.0f, ZOffset));
+	// 模型中心对齐网格点，无需Z轴偏移
+	CubeMeshComponent->SetRelativeLocation(FVector::ZeroVector);
 
 	UE_LOG(LogTemp, Log, TEXT("UnitActor '%s' scale set to %.2f%%"), *UnitName, ScaleMultiplier * 100.0f);
 }

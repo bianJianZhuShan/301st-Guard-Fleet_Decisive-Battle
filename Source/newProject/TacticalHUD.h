@@ -94,6 +94,7 @@ protected:
 	void DrawRightPanel();         // 右侧15%操作按钮
 	void DrawUnitHoverInfo();      // 单位悬停信息
 	void DrawTopSeatInfo();        // 顶部坐席信息
+	void DrawAttackIndicators();   // 攻击模式下可攻击目标的红色箭头
 
 	// 旧函数（保留兼容）
 	void DrawUnitInfoPanel();

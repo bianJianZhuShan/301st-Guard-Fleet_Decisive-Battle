@@ -3,6 +3,7 @@
 
 #include "TacticalHUD.h"
 #include "UnitActor.h"
+#include "GridSpaceActor.h"
 #include "TacticalPlayerController.h"
 #include "TacticalGameState.h"
 #include "TacticalGameInstance.h"
@@ -150,9 +151,10 @@ void ATacticalHUD::DrawHUD()
 	// 20.2 战局内UI
 	DrawBottomPanel();   // 底部20%区域
 	DrawRightPanel();    // 右侧15%操作按钮
-	DrawUnitHoverInfo(); // 单位悬停信息
-	DrawTopSeatInfo();   // 顶部坐席信息
-	DrawMessageArea();   // 左侧消息区域
+	DrawUnitHoverInfo();      // 单位悬停信息
+	DrawTopSeatInfo();        // 顶部坐席信息
+	DrawMessageArea();        // 左侧消息区域
+	DrawAttackIndicators();   // 攻击模式可攻击目标红色箭头
 }
 
 void ATacticalHUD::SetMainMenuVisible(bool bVisible)
@@ -347,7 +349,7 @@ void ATacticalHUD::DrawMainMenu()
 	DrawText(TEXT("退出"), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f), ButtonX + 20.0f, ButtonY + 14.0f);
 
 	// 版本号显示（左下角）
-	DrawText(TEXT("v0.0.2.0"), FLinearColor(0.4f, 0.4f, 0.5f, 1.0f), 20.0f, Canvas->SizeY - 30.0f);
+	DrawText(TEXT("v0.0.2.2"), FLinearColor(0.4f, 0.4f, 0.5f, 1.0f), 20.0f, Canvas->SizeY - 30.0f);
 }
 
 void ATacticalHUD::SetSelectedUnit(AUnitActor* Unit)
@@ -1450,6 +1452,59 @@ void ATacticalHUD::DrawUnitHoverInfo()
 	float HealthPercent = (float)HoveredUnit->Health / (float)HoveredUnit->MaxHealth;
 	FLinearColor HPColor = HealthPercent > 0.5f ? FLinearColor(0.2f, 1.0f, 0.3f, 1.0f) : (HealthPercent > 0.25f ? FLinearColor(1.0f, 0.8f, 0.2f, 1.0f) : FLinearColor(1.0f, 0.2f, 0.2f, 1.0f));
 	DrawText(HPText, HPColor, ScreenPos.X + OffsetX, ScreenPos.Y + OffsetY + 18.0f);
+}
+
+void ATacticalHUD::DrawAttackIndicators()
+{
+	if (!Canvas || !SelectedUnit || !SelectedUnit->bIsInAttackMode || SelectedUnit->bIsDead) return;
+
+	ATacticalPlayerController* TPC = Cast<ATacticalPlayerController>(GetOwningPlayerController());
+	if (!TPC) return;
+
+	// 获取所有单位
+	TArray<AActor*> AllUnits;
+	UGameplayStatics::GetAllActorsOfClass(GetWorld(), AUnitActor::StaticClass(), AllUnits);
+
+	for (AActor* Actor : AllUnits)
+	{
+		AUnitActor* Unit = Cast<AUnitActor>(Actor);
+		if (!Unit || Unit == SelectedUnit || Unit->bIsDead) continue;
+
+		// 只标记敌方单位
+		bool bIsEnemyTarget = (TPC->MySeat == ETacticalSeat::Player && Unit->bIsEnemy) ||
+		                      (TPC->MySeat == ETacticalSeat::AI && !Unit->bIsEnemy);
+		if (!bIsEnemyTarget) continue;
+
+		// 检查是否在攻击范围内
+		if (!SelectedUnit->IsPositionInAttackRange(Unit->CurrentGridPosition)) continue;
+
+		// 投影到屏幕坐标
+		FVector UnitWorldPos = Unit->GetActorLocation();
+		FVector2D ScreenPos;
+		if (!TPC->ProjectWorldLocationToScreen(UnitWorldPos + FVector(0, 0, 150.0f), ScreenPos)) continue;
+
+		// 绘制红色向下箭头 ▼
+		const float ArrowSize = 12.0f;
+		const FLinearColor ArrowColor(1.0f, 0.2f, 0.2f, 1.0f);
+
+		// 箭头三角形（用三条粗线模拟）
+		float Ax = ScreenPos.X;
+		float Ay = ScreenPos.Y;
+
+		// 绘制一个向下指的三角形箭头
+		// 顶部横线
+		DrawRect(ArrowColor, Ax - ArrowSize, Ay, ArrowSize * 2.0f, 3.0f);
+		// 逐行缩小模拟三角形
+		for (float Row = 0; Row < ArrowSize; Row += 2.0f)
+		{
+			float Ratio = 1.0f - (Row / ArrowSize);
+			float HalfWidth = ArrowSize * Ratio;
+			DrawRect(ArrowColor, Ax - HalfWidth, Ay + 3.0f + Row, HalfWidth * 2.0f, 2.0f);
+		}
+
+		// 在箭头下方显示"可攻击"文字
+		DrawText(TEXT("可攻击"), ArrowColor, Ax - 20.0f, Ay + ArrowSize + 8.0f);
+	}
 }
 
 void ATacticalHUD::SetHoveredUnit(AUnitActor* Unit)
