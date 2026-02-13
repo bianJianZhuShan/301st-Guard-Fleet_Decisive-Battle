@@ -74,7 +74,7 @@ struct FDamageContext
 
 /**
  * 投射物Actor
- * 从发射单位水平移动到目标位置，命中时造成伤害
+ * 沿发射方向线性飞行，途中Sweep检测命中；到达最大射程或命中物体后消失
  */
 UCLASS()
 class NEWPROJECT_API AProjectileActor : public AActor
@@ -104,13 +104,21 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Projectile")
 	AUnitActor* SourceUnit;
 
-	// 目标位置
+	// 目标位置（用于计算初始飞行方向）
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Projectile")
 	FVector TargetPosition;
 
 	// 起始位置
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Projectile")
 	FVector StartPosition;
+
+	// 飞行方向（固定，在Initialize时根据起点->目标计算）
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Projectile")
+	FVector FlyDirection;
+
+	// 最大飞行距离（世界单位，由攻击范围决定）
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile")
+	float MaxRange;
 
 	// 伤害值
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile")
@@ -133,9 +141,9 @@ public:
 
 	// ========== 公共方法 ==========
 
-	// 初始化投射物
+	// 初始化投射物（MaxRangeOverride <= 0 时自动使用源单位的攻击范围）
 	UFUNCTION(BlueprintCallable, Category = "Projectile")
-	void Initialize(AUnitActor* Source, FVector Target, int32 DamageAmount);
+	void Initialize(AUnitActor* Source, FVector Target, int32 DamageAmount, float MaxRangeOverride = 0.0f);
 
 	// 武器类型
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile")

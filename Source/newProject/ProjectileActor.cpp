@@ -3,6 +3,7 @@
 
 #include "ProjectileActor.h"
 #include "UnitActor.h"
+#include "GridSpaceActor.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
 #include "Materials/MaterialInstanceDynamic.h"
@@ -48,6 +49,8 @@ AProjectileActor::AProjectileActor()
 	CollisionRadius = 80.0f;  // Sweep检测半径
 	MaxLifetime = 10.0f;      // 最多存活10秒
 	AliveTime = 0.0f;
+	FlyDirection = FVector::ForwardVector;
+	MaxRange = 10000.0f;      // 默认最大射程
 }
 
 void AProjectileActor::BeginPlay()
@@ -89,33 +92,36 @@ void AProjectileActor::Tick(float DeltaTime)
 		return;
 	}
 
-	// 计算移动
+	// 沿固定方向线性飞行
 	FVector CurrentPos = GetActorLocation();
-	FVector Direction = (TargetPosition - CurrentPos).GetSafeNormal();
 	float MoveDistance = MoveSpeed * DeltaTime;
-	FVector NewPos = CurrentPos + Direction * MoveDistance;
+	FVector NewPos = CurrentPos + FlyDirection * MoveDistance;
 
-	// 检查是否到达目标位置（超过目标后继续前进一段再自毁）
-	float DistanceToTarget = FVector::Dist(CurrentPos, TargetPosition);
-	bool bPassedTarget = (MoveDistance >= DistanceToTarget);
+	// 检查是否超过最大射程
+	float DistFromStart = FVector::Dist(StartPosition, NewPos);
+	if (DistFromStart >= MaxRange)
+	{
+		UE_LOG(LogTemp, Log, TEXT("Projectile reached max range (%.0f units)"), MaxRange);
+		Destroy();
+		return;
+	}
 
 	// === Sweep检测：沿飞行路径检测是否命中单位模型 ===
 	FHitResult HitResult;
 	FCollisionQueryParams QueryParams;
-	QueryParams.bTraceComplex = false;  // 简单碰撞（包围盒），后续可改为true实现精确命中
+	QueryParams.bTraceComplex = false;
 	QueryParams.AddIgnoredActor(this);
 	if (SourceUnit)
 	{
 		QueryParams.AddIgnoredActor(SourceUnit);
 	}
 
-	// 球形Sweep检测，沿移动路径检查是否碰撞到单位模型
 	bool bHit = GetWorld()->SweepSingleByChannel(
 		HitResult,
 		CurrentPos,
 		NewPos,
 		FQuat::Identity,
-		ECC_Visibility,  // 使用Visibility通道，因为单位模型在该通道上Block
+		ECC_Visibility,
 		FCollisionShape::MakeSphere(CollisionRadius),
 		QueryParams
 	);
@@ -125,17 +131,15 @@ void AProjectileActor::Tick(float DeltaTime)
 		AUnitActor* HitUnit = Cast<AUnitActor>(HitResult.GetActor());
 		if (HitUnit && !HitUnit->bIsDead)
 		{
-			// 构建伤害上下文
 			FDamageContext DmgCtx;
 			DmgCtx.BaseDamage = Damage;
 			DmgCtx.HitLocation = HitResult.ImpactPoint;
 			DmgCtx.HitNormal = HitResult.ImpactNormal;
-			DmgCtx.HitZone = EDamageZone::Default;  // 未来可根据bone/位置判定区域
+			DmgCtx.HitZone = EDamageZone::Default;
 			DmgCtx.WeaponType = WeaponType;
 			DmgCtx.DamageMultiplier = 1.0f;
 			DmgCtx.SourceUnit = SourceUnit;
 
-			// 命中！造成伤害
 			HitUnit->ApplyDamage(DmgCtx.GetFinalDamage());
 			UE_LOG(LogTemp, Log, TEXT("Projectile hit %s at %s for %d damage! (sweep collision)"),
 				*HitUnit->UnitName, *DmgCtx.HitLocation.ToString(), DmgCtx.GetFinalDamage());
@@ -144,27 +148,11 @@ void AProjectileActor::Tick(float DeltaTime)
 		}
 	}
 
-	// 未命中，继续移动
+	// 未命中，继续沿方向移动
 	SetActorLocation(NewPos);
-
-	// 让投射物朝向移动方向
-	FRotator NewRotation = Direction.Rotation();
-	SetActorRotation(NewRotation);
-
-	// 如果已经超过目标位置较远，自毁
-	if (bPassedTarget)
-	{
-		float OvershootDist = FVector::Dist(NewPos, TargetPosition);
-		if (OvershootDist > CollisionRadius * 5.0f)
-		{
-			UE_LOG(LogTemp, Log, TEXT("Projectile missed - passed target by %.0f units"), OvershootDist);
-			Destroy();
-			return;
-		}
-	}
 }
 
-void AProjectileActor::Initialize(AUnitActor* Source, FVector Target, int32 DamageAmount)
+void AProjectileActor::Initialize(AUnitActor* Source, FVector Target, int32 DamageAmount, float MaxRangeOverride)
 {
 	SourceUnit = Source;
 	TargetPosition = Target;
@@ -174,10 +162,25 @@ void AProjectileActor::Initialize(AUnitActor* Source, FVector Target, int32 Dama
 	{
 		StartPosition = Source->GetActorLocation();
 		SetActorLocation(StartPosition);
+
+		// 计算固定飞行方向：从起点指向目标
+		FlyDirection = (Target - StartPosition).GetSafeNormal();
+
+		// 设置最大射程
+		if (MaxRangeOverride > 0.0f)
+		{
+			MaxRange = MaxRangeOverride;
+		}
+		else if (Source->OwningGrid)
+		{
+			// 自动根据源单位的攻击范围计算最大射程
+			MaxRange = Source->AttackRange * Source->OwningGrid->CellSpacing;
+		}
+
+		// 初始朝向
+		SetActorRotation(FlyDirection.Rotation());
 	}
 
-	UE_LOG(LogTemp, Log, TEXT("Projectile initialized: from %s to %s, damage: %d"),
-		*StartPosition.ToString(), *TargetPosition.ToString(), Damage);
+	UE_LOG(LogTemp, Log, TEXT("Projectile initialized: from %s dir %s, damage: %d, maxRange: %.0f"),
+		*StartPosition.ToString(), *FlyDirection.ToString(), Damage, MaxRange);
 }
-
-// CheckHit 已移除，改用Tick中Sweep检测
