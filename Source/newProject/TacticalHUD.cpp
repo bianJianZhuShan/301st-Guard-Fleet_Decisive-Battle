@@ -133,6 +133,12 @@ void ATacticalHUD::DrawHUD()
 		return;
 	}
 
+	if (bShowGameOver)
+	{
+		DrawGameOverScreen();
+		return;
+	}
+
 	if (bShowPauseMenu)
 	{
 		DrawPauseMenu();
@@ -146,6 +152,7 @@ void ATacticalHUD::DrawHUD()
 	DrawRightPanel();    // 右侧15%操作按钮
 	DrawUnitHoverInfo(); // 单位悬停信息
 	DrawTopSeatInfo();   // 顶部坐席信息
+	DrawMessageArea();   // 左侧消息区域
 }
 
 void ATacticalHUD::SetMainMenuVisible(bool bVisible)
@@ -1448,5 +1455,163 @@ void ATacticalHUD::DrawUnitHoverInfo()
 void ATacticalHUD::SetHoveredUnit(AUnitActor* Unit)
 {
 	HoveredUnit = Unit;
+}
+
+// ========== 消息系统 ==========
+
+void ATacticalHUD::AddMessage(const FString& Text, FLinearColor Color, float Duration)
+{
+	float CurrentTime = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.0f;
+	MessageQueue.Add(FGameMessage(Text, Color, CurrentTime, Duration));
+
+	// 限制消息队列最大长度，防止内存溢出
+	if (MessageQueue.Num() > 20)
+	{
+		MessageQueue.RemoveAt(0);
+	}
+
+	UE_LOG(LogTemp, Log, TEXT("HUD Message: %s"), *Text);
+}
+
+void ATacticalHUD::DrawMessageArea()
+{
+	if (!Canvas) return;
+
+	float CurrentTime = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.0f;
+
+	// 清理过期消息
+	MessageQueue.RemoveAll([CurrentTime](const FGameMessage& Msg)
+	{
+		return (CurrentTime - Msg.SpawnTime) >= Msg.Duration;
+	});
+
+	if (MessageQueue.Num() == 0) return;
+
+	// 消息区域位置：左侧，坐席框下方
+	const float TopBarHeight = Canvas->SizeY * 0.1f;
+	const float MsgAreaX = 10.0f;
+	const float MsgAreaY = TopBarHeight + 10.0f;
+	const float MsgAreaW = Canvas->SizeX * 0.18f;
+	const float LineHeight = 20.0f;
+	const float Padding = 8.0f;
+
+	// 计算需要显示的消息数量（最多显示5条）
+	int32 DisplayCount = FMath::Min(MessageQueue.Num(), 5);
+	int32 StartIndex = MessageQueue.Num() - DisplayCount;
+	float MsgAreaH = DisplayCount * LineHeight + Padding * 2.0f;
+
+	// 背景
+	DrawRect(FLinearColor(0.04f, 0.04f, 0.06f, 0.85f), MsgAreaX, MsgAreaY, MsgAreaW, MsgAreaH);
+
+	// 边框
+	const float Border = 1.5f;
+	FLinearColor BorderColor(0.3f, 0.5f, 0.7f, 0.8f);
+	DrawRect(BorderColor, MsgAreaX, MsgAreaY, MsgAreaW, Border);
+	DrawRect(BorderColor, MsgAreaX, MsgAreaY + MsgAreaH - Border, MsgAreaW, Border);
+	DrawRect(BorderColor, MsgAreaX, MsgAreaY, Border, MsgAreaH);
+	DrawRect(BorderColor, MsgAreaX + MsgAreaW - Border, MsgAreaY, Border, MsgAreaH);
+
+	// 绘制消息文本
+	float TextY = MsgAreaY + Padding;
+	for (int32 i = StartIndex; i < MessageQueue.Num(); i++)
+	{
+		const FGameMessage& Msg = MessageQueue[i];
+
+		// 计算淡出效果（最后1秒渐隐）
+		float Elapsed = CurrentTime - Msg.SpawnTime;
+		float Remaining = Msg.Duration - Elapsed;
+		float Alpha = FMath::Clamp(Remaining, 0.0f, 1.0f);
+
+		FLinearColor TextColor = Msg.Color;
+		TextColor.A *= Alpha;
+
+		DrawText(Msg.Text, TextColor, MsgAreaX + Padding, TextY);
+		TextY += LineHeight;
+	}
+}
+
+// ========== 胜负屏幕 ==========
+
+void ATacticalHUD::ShowGameOver(bool bVictory)
+{
+	bShowGameOver = true;
+	bIsVictory = bVictory;
+	GameOverTimer = 0.0f;
+
+	UE_LOG(LogTemp, Log, TEXT("Game Over: %s"), bVictory ? TEXT("VICTORY") : TEXT("DEFEAT"));
+}
+
+void ATacticalHUD::DrawGameOverScreen()
+{
+	if (!Canvas) return;
+
+	// 更新计时器
+	float DeltaTime = GetWorld() ? GetWorld()->GetDeltaSeconds() : 0.0f;
+	GameOverTimer += DeltaTime;
+
+	// 全屏半透明黑色遮罩
+	float OverlayAlpha = FMath::Clamp(GameOverTimer * 2.0f, 0.0f, 0.7f);
+	DrawRect(FLinearColor(0.0f, 0.0f, 0.0f, OverlayAlpha), 0.0f, 0.0f, Canvas->SizeX, Canvas->SizeY);
+
+	// 中央面板
+	const float PanelW = 500.0f;
+	const float PanelH = 200.0f;
+	const float PanelX = (Canvas->SizeX - PanelW) * 0.5f;
+	const float PanelY = (Canvas->SizeY - PanelH) * 0.5f;
+
+	DrawRect(FLinearColor(0.06f, 0.06f, 0.08f, 0.95f), PanelX, PanelY, PanelW, PanelH);
+
+	// 边框颜色根据胜负变化
+	FLinearColor BorderColor = bIsVictory ?
+		FLinearColor(0.3f, 0.8f, 0.4f, 1.0f) :  // 绿色-胜利
+		FLinearColor(0.8f, 0.3f, 0.3f, 1.0f);    // 红色-失败
+
+	const float Border = 3.0f;
+	DrawRect(BorderColor, PanelX, PanelY, PanelW, Border);
+	DrawRect(BorderColor, PanelX, PanelY + PanelH - Border, PanelW, Border);
+	DrawRect(BorderColor, PanelX, PanelY, Border, PanelH);
+	DrawRect(BorderColor, PanelX + PanelW - Border, PanelY, Border, PanelH);
+
+	// 标题文字
+	FString TitleText = bIsVictory ? TEXT("胜  利") : TEXT("失  败");
+	FLinearColor TitleColor = bIsVictory ?
+		FLinearColor(0.4f, 1.0f, 0.5f, 1.0f) :
+		FLinearColor(1.0f, 0.4f, 0.4f, 1.0f);
+	DrawText(TitleText, TitleColor, PanelX + 190.0f, PanelY + 30.0f);
+
+	// 描述文字
+	FString DescText = bIsVictory ?
+		TEXT("敌方旗舰已被摧毁！") :
+		TEXT("己方旗舰已被摧毁...");
+	DrawText(DescText, FLinearColor(0.8f, 0.8f, 0.8f, 1.0f), PanelX + 140.0f, PanelY + 80.0f);
+
+	// 倒计时提示
+	float Remaining = FMath::Max(0.0f, GameOverReturnDelay - GameOverTimer);
+	FString CountdownText = FString::Printf(TEXT("%.0f 秒后返回主菜单..."), FMath::CeilToFloat(Remaining));
+	DrawText(CountdownText, FLinearColor(0.5f, 0.5f, 0.6f, 1.0f), PanelX + 140.0f, PanelY + 140.0f);
+
+	// 提示点击跳过
+	DrawText(TEXT("点击任意位置立即返回"), FLinearColor(0.4f, 0.4f, 0.5f, 1.0f), PanelX + 140.0f, PanelY + 165.0f);
+
+	// 自动返回或点击返回
+	bool bShouldReturn = (GameOverTimer >= GameOverReturnDelay);
+
+	APlayerController* PC = GetOwningPlayerController();
+	if (PC && PC->WasInputKeyJustPressed(EKeys::LeftMouseButton))
+	{
+		bShouldReturn = true;
+	}
+
+	if (bShouldReturn)
+	{
+		bShowGameOver = false;
+
+		if (UTacticalGameInstance* TGI = Cast<UTacticalGameInstance>(GetWorld()->GetGameInstance()))
+		{
+			TGI->bSkipMainMenuOnce = false;
+		}
+
+		UGameplayStatics::OpenLevel(GetWorld(), FName(TEXT("Launcher")));
+	}
 }
 

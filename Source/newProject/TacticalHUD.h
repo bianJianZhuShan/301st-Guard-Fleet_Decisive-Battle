@@ -11,6 +11,26 @@
 // 前向声明
 class AUnitActor;
 
+/** 游戏消息结构体 */
+USTRUCT()
+struct FGameMessage
+{
+	GENERATED_BODY()
+
+	FString Text;
+	FLinearColor Color;
+	float SpawnTime;    // 创建时间（世界时间）
+	float Duration;     // 显示时长（秒）
+
+	FGameMessage()
+		: Color(FLinearColor::White), SpawnTime(0.0f), Duration(5.0f)
+	{}
+
+	FGameMessage(const FString& InText, FLinearColor InColor, float InSpawnTime, float InDuration = 5.0f)
+		: Text(InText), Color(InColor), SpawnTime(InSpawnTime), Duration(InDuration)
+	{}
+};
+
 // 主菜单子页面枚举
 UENUM(BlueprintType)
 enum class EMainMenuPage : uint8
@@ -204,4 +224,36 @@ public:
 	// 设置悬停单位
 	UFUNCTION(BlueprintCallable, Category = "HUD")
 	void SetHoveredUnit(AUnitActor* Unit);
+
+	// ========== 消息系统 ==========
+
+	/** 添加一条消息（将在左侧消息区显示，默认5秒后消失） */
+	UFUNCTION(BlueprintCallable, Category = "HUD|Message")
+	void AddMessage(const FString& Text, FLinearColor Color = FLinearColor::White, float Duration = 5.0f);
+
+	// ========== 胜负屏幕 ==========
+
+	/** 显示胜利/失败屏幕 */
+	UFUNCTION(BlueprintCallable, Category = "HUD|GameOver")
+	void ShowGameOver(bool bVictory);
+
+	/** 是否显示游戏结束屏幕 */
+	bool bShowGameOver = false;
+
+	/** 是否胜利 */
+	bool bIsVictory = false;
+
+protected:
+	// 消息队列
+	TArray<FGameMessage> MessageQueue;
+
+	// 游戏结束计时器（自动返回启动器）
+	float GameOverTimer = 0.0f;
+	float GameOverReturnDelay = 5.0f;
+
+	// 绘制消息区域
+	void DrawMessageArea();
+
+	// 绘制胜负屏幕
+	void DrawGameOverScreen();
 };

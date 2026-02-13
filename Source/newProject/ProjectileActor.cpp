@@ -31,7 +31,7 @@ AProjectileActor::AProjectileActor()
 	// 设置为小立方体（水平放置）
 	ProjectileMesh->SetRelativeScale3D(FVector(0.8f, 0.3f, 0.3f));
 
-	// 禁用碰撞（使用自定义检测）
+	// 禁用碰撞（使用Sweep检测代替）
 	ProjectileMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
 	// 默认属性
@@ -44,6 +44,10 @@ AProjectileActor::AProjectileActor()
 	LaunchDelayTimer = 0.0f;
 	LaunchDelay = 1.0f;  // 1秒后发射
 	ProjectileMaterial = nullptr;
+	WeaponType = EWeaponType::Projectile;
+	CollisionRadius = 80.0f;  // Sweep检测半径
+	MaxLifetime = 10.0f;      // 最多存活10秒
+	AliveTime = 0.0f;
 }
 
 void AProjectileActor::BeginPlay()
@@ -76,29 +80,88 @@ void AProjectileActor::Tick(float DeltaTime)
 		return;
 	}
 
-	// 移动向目标
-	FVector CurrentPos = GetActorLocation();
-	FVector Direction = (TargetPosition - CurrentPos).GetSafeNormal();
-	FVector NewPos = CurrentPos + Direction * MoveSpeed * DeltaTime;
-
-	// 检查是否到达目标
-	float DistanceToTarget = FVector::Dist(CurrentPos, TargetPosition);
-	float MoveDistance = MoveSpeed * DeltaTime;
-
-	if (MoveDistance >= DistanceToTarget)
+	// 更新存活时间
+	AliveTime += DeltaTime;
+	if (AliveTime >= MaxLifetime)
 	{
-		// 到达目标位置
-		SetActorLocation(TargetPosition);
-		CheckHit();
+		UE_LOG(LogTemp, Log, TEXT("Projectile expired after %.1f seconds"), AliveTime);
 		Destroy();
 		return;
 	}
 
+	// 计算移动
+	FVector CurrentPos = GetActorLocation();
+	FVector Direction = (TargetPosition - CurrentPos).GetSafeNormal();
+	float MoveDistance = MoveSpeed * DeltaTime;
+	FVector NewPos = CurrentPos + Direction * MoveDistance;
+
+	// 检查是否到达目标位置（超过目标后继续前进一段再自毁）
+	float DistanceToTarget = FVector::Dist(CurrentPos, TargetPosition);
+	bool bPassedTarget = (MoveDistance >= DistanceToTarget);
+
+	// === Sweep检测：沿飞行路径检测是否命中单位模型 ===
+	FHitResult HitResult;
+	FCollisionQueryParams QueryParams;
+	QueryParams.bTraceComplex = false;  // 简单碰撞（包围盒），后续可改为true实现精确命中
+	QueryParams.AddIgnoredActor(this);
+	if (SourceUnit)
+	{
+		QueryParams.AddIgnoredActor(SourceUnit);
+	}
+
+	// 球形Sweep检测，沿移动路径检查是否碰撞到单位模型
+	bool bHit = GetWorld()->SweepSingleByChannel(
+		HitResult,
+		CurrentPos,
+		NewPos,
+		FQuat::Identity,
+		ECC_Visibility,  // 使用Visibility通道，因为单位模型在该通道上Block
+		FCollisionShape::MakeSphere(CollisionRadius),
+		QueryParams
+	);
+
+	if (bHit)
+	{
+		AUnitActor* HitUnit = Cast<AUnitActor>(HitResult.GetActor());
+		if (HitUnit && !HitUnit->bIsDead)
+		{
+			// 构建伤害上下文
+			FDamageContext DmgCtx;
+			DmgCtx.BaseDamage = Damage;
+			DmgCtx.HitLocation = HitResult.ImpactPoint;
+			DmgCtx.HitNormal = HitResult.ImpactNormal;
+			DmgCtx.HitZone = EDamageZone::Default;  // 未来可根据bone/位置判定区域
+			DmgCtx.WeaponType = WeaponType;
+			DmgCtx.DamageMultiplier = 1.0f;
+			DmgCtx.SourceUnit = SourceUnit;
+
+			// 命中！造成伤害
+			HitUnit->ApplyDamage(DmgCtx.GetFinalDamage());
+			UE_LOG(LogTemp, Log, TEXT("Projectile hit %s at %s for %d damage! (sweep collision)"),
+				*HitUnit->UnitName, *DmgCtx.HitLocation.ToString(), DmgCtx.GetFinalDamage());
+			Destroy();
+			return;
+		}
+	}
+
+	// 未命中，继续移动
 	SetActorLocation(NewPos);
 
 	// 让投射物朝向移动方向
 	FRotator NewRotation = Direction.Rotation();
 	SetActorRotation(NewRotation);
+
+	// 如果已经超过目标位置较远，自毁
+	if (bPassedTarget)
+	{
+		float OvershootDist = FVector::Dist(NewPos, TargetPosition);
+		if (OvershootDist > CollisionRadius * 5.0f)
+		{
+			UE_LOG(LogTemp, Log, TEXT("Projectile missed - passed target by %.0f units"), OvershootDist);
+			Destroy();
+			return;
+		}
+	}
 }
 
 void AProjectileActor::Initialize(AUnitActor* Source, FVector Target, int32 DamageAmount)
@@ -117,29 +180,4 @@ void AProjectileActor::Initialize(AUnitActor* Source, FVector Target, int32 Dama
 		*StartPosition.ToString(), *TargetPosition.ToString(), Damage);
 }
 
-void AProjectileActor::CheckHit()
-{
-	// 查找目标位置附近的单位
-	TArray<AActor*> FoundActors;
-	UGameplayStatics::GetAllActorsOfClass(GetWorld(), AUnitActor::StaticClass(), FoundActors);
-
-	float HitRadius = 150.0f;  // 命中半径
-
-	for (AActor* Actor : FoundActors)
-	{
-		AUnitActor* Unit = Cast<AUnitActor>(Actor);
-		if (Unit && Unit != SourceUnit && !Unit->bIsDead)
-		{
-			float Distance = FVector::Dist(TargetPosition, Unit->GetActorLocation());
-			if (Distance <= HitRadius)
-			{
-				// 命中！造成伤害
-				Unit->ApplyDamage(Damage);
-				UE_LOG(LogTemp, Log, TEXT("Projectile hit %s for %d damage!"), *Unit->UnitName, Damage);
-				return;
-			}
-		}
-	}
-
-	UE_LOG(LogTemp, Log, TEXT("Projectile missed - no target at destination"));
-}
+// CheckHit 已移除，改用Tick中Sweep检测

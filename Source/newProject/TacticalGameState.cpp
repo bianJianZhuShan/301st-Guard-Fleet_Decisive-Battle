@@ -1,6 +1,9 @@
 #include "TacticalGameState.h"
 #include "UnitActor.h"
 #include "TacticalGameMode.h"
+#include "TacticalPlayerController.h"
+#include "TacticalHUD.h"
+#include "TacticalGameInstance.h"
 #include "Net/UnrealNetwork.h"
 
 ATacticalGameState::ATacticalGameState()
@@ -206,6 +209,44 @@ void ATacticalGameState::StartCounterWindow(ETacticalSeat InCounterSeat, AUnitAc
 	UE_LOG(LogTemp, Log, TEXT("StartCounterWindow: %s has %.1f seconds to counter"),
 		InCounterSeat == ETacticalSeat::Player ? TEXT("Player") : TEXT("AI"),
 		CounterWindowTimeout);
+
+	// 通知所有玩家的HUD显示反击提示消息
+	if (UWorld* World = GetWorld())
+	{
+		// 获取反击方玩家名称
+		FString CounterPlayerName;
+		for (FConstPlayerControllerIterator It = World->GetPlayerControllerIterator(); It; ++It)
+		{
+			if (ATacticalPlayerController* TPC = Cast<ATacticalPlayerController>(It->Get()))
+			{
+				if (TPC->MySeat == InCounterSeat)
+				{
+					if (UTacticalGameInstance* GI = Cast<UTacticalGameInstance>(World->GetGameInstance()))
+					{
+						CounterPlayerName = GI->PlayerName;
+					}
+					break;
+				}
+			}
+		}
+		if (CounterPlayerName.IsEmpty())
+		{
+			CounterPlayerName = (InCounterSeat == ETacticalSeat::Player) ? TEXT("坐席1") : TEXT("坐席2/AI");
+		}
+
+		FString Msg = FString::Printf(TEXT("当前为 %s 反击阶段 (%.0f秒)"), *CounterPlayerName, CounterWindowTimeout);
+
+		for (FConstPlayerControllerIterator It = World->GetPlayerControllerIterator(); It; ++It)
+		{
+			if (ATacticalPlayerController* TPC = Cast<ATacticalPlayerController>(It->Get()))
+			{
+				if (ATacticalHUD* TacticalHUD = Cast<ATacticalHUD>(TPC->GetHUD()))
+				{
+					TacticalHUD->AddMessage(Msg, FLinearColor(1.0f, 0.7f, 0.3f, 1.0f), 5.0f);
+				}
+			}
+		}
+	}
 }
 
 void ATacticalGameState::EndCounterWindow()

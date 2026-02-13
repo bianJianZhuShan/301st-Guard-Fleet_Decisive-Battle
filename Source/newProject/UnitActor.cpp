@@ -6,6 +6,7 @@
 #include "GridSpaceActor.h"
 #include "ShipDataConfig.h"
 #include "TacticalPlayerController.h"
+#include "TacticalHUD.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
 #include "Engine/SkeletalMesh.h"
@@ -271,8 +272,8 @@ void AUnitActor::SetMoveMode(bool bEnterMoveMode)
 			float WorldRadius = MoveRange * OwningGrid->CellSpacing;
 			OwningGrid->SetHighlightMode(true);  // 移动模式
 			OwningGrid->HighlightVerticesInRange(CurrentWorldPos, WorldRadius, FLinearColor(0.0f, 1.0f, 0.5f, 1.0f));
-			// 显示范围半球体
-			OwningGrid->ShowRangeHemisphere(CurrentWorldPos, WorldRadius, FLinearColor(0.2f, 0.6f, 1.0f, 1.0f), true);
+			// 范围半球体暂时隐藏（存在显示问题）
+			// OwningGrid->ShowRangeHemisphere(CurrentWorldPos, WorldRadius, FLinearColor(0.2f, 0.6f, 1.0f, 1.0f), true);
 		}
 		else
 		{
@@ -301,8 +302,8 @@ void AUnitActor::SetAttackMode(bool bEnterAttackMode)
 			float WorldRadius = AttackRange * OwningGrid->CellSpacing;
 			OwningGrid->SetHighlightMode(false);  // 非移动模式
 			OwningGrid->HighlightVerticesInRange(CurrentWorldPos, WorldRadius, FLinearColor(1.0f, 0.3f, 0.3f, 1.0f));
-			// 显示范围半球体
-			OwningGrid->ShowRangeHemisphere(CurrentWorldPos, WorldRadius, FLinearColor(1.0f, 0.3f, 0.3f, 1.0f), false);
+			// 范围半球体暂时隐藏（存在显示问题）
+			// OwningGrid->ShowRangeHemisphere(CurrentWorldPos, WorldRadius, FLinearColor(1.0f, 0.3f, 0.3f, 1.0f), false);
 		}
 		else
 		{
@@ -446,27 +447,28 @@ void AUnitActor::Die()
 		UE_LOG(LogTemp, Warning, TEXT("Flagship '%s' destroyed! Game Over for %s side."), 
 			*UnitName, bIsEnemy ? TEXT("AI") : TEXT("Player"));
 		
-		// 通知游戏状态
+		// 通知所有玩家的HUD显示胜负屏幕
 		if (UWorld* World = GetWorld())
 		{
-			if (AGameStateBase* GS = World->GetGameState<AGameStateBase>())
+			for (FConstPlayerControllerIterator It = World->GetPlayerControllerIterator(); It; ++It)
 			{
-				// 广播旗舰被击毁事件
-				// 敌方旗舰被击毁 = 玩家胜利，己方旗舰被击毁 = 玩家失败
-				for (FConstPlayerControllerIterator It = World->GetPlayerControllerIterator(); It; ++It)
+				if (ATacticalPlayerController* TPC = Cast<ATacticalPlayerController>(It->Get()))
 				{
-					if (ATacticalPlayerController* TPC = Cast<ATacticalPlayerController>(It->Get()))
+					if (ATacticalHUD* TacticalHUD = Cast<ATacticalHUD>(TPC->GetHUD()))
 					{
-						if (bIsEnemy)
+						// 敌方旗舰被击毁 = 该玩家胜利
+						// 己方旗舰被击毁 = 该玩家失败
+						// 根据玩家坐席判断：主机(Player)视角下 bIsEnemy=true 的旗舰被击毁 = 主机胜利
+						bool bVictoryForThisPlayer = false;
+						if (TPC->MySeat == ETacticalSeat::Player)
 						{
-							// AI旗舰被击毁，玩家胜利
-							TPC->OnEndMatchClicked(); // 暂时用这个，后续可以改为胜利界面
+							bVictoryForThisPlayer = bIsEnemy;  // 敌方旗舰被毁=胜利
 						}
 						else
 						{
-							// 玩家旗舰被击毁，玩家失败
-							TPC->OnEndMatchClicked();
+							bVictoryForThisPlayer = !bIsEnemy; // 己方旗舰被毁=对方胜利
 						}
+						TacticalHUD->ShowGameOver(bVictoryForThisPlayer);
 					}
 				}
 			}

@@ -9,6 +9,69 @@
 
 class AUnitActor;
 
+/** 武器类型枚举（预留扩展） */
+UENUM(BlueprintType)
+enum class EWeaponType : uint8
+{
+	Projectile   UMETA(DisplayName = "弹丸"),      // 普通投射物，命中即结算
+	Missile      UMETA(DisplayName = "导弹"),      // 追踪式，命中即结算
+	Laser        UMETA(DisplayName = "激光"),      // 持续照射，持续结算伤害
+	Beam         UMETA(DisplayName = "光束"),      // 类似激光但有宽度
+	Torpedo      UMETA(DisplayName = "鱼雷"),      // 慢速高伤害
+};
+
+/** 伤害区域枚举（预留分部位伤害） */
+UENUM(BlueprintType)
+enum class EDamageZone : uint8
+{
+	Default      UMETA(DisplayName = "默认"),      // 1.0x 伤害倍率
+	Critical     UMETA(DisplayName = "弱区"),      // 高伤害倍率
+	Armored      UMETA(DisplayName = "装甲区"),    // 低伤害倍率
+	Engine       UMETA(DisplayName = "引擎区"),    // 命中可降低移动力
+	Weapon       UMETA(DisplayName = "武器区"),    // 命中可降低攻击力
+};
+
+/** 伤害上下文（携带命中信息，供未来扩展） */
+USTRUCT(BlueprintType)
+struct FDamageContext
+{
+	GENERATED_BODY()
+
+	/** 基础伤害 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	int32 BaseDamage = 0;
+
+	/** 命中位置（世界坐标） */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FVector HitLocation = FVector::ZeroVector;
+
+	/** 命中法线 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FVector HitNormal = FVector::ZeroVector;
+
+	/** 命中区域 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	EDamageZone HitZone = EDamageZone::Default;
+
+	/** 武器类型 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	EWeaponType WeaponType = EWeaponType::Projectile;
+
+	/** 伤害倍率（由区域决定） */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	float DamageMultiplier = 1.0f;
+
+	/** 攻击来源单位 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	AUnitActor* SourceUnit = nullptr;
+
+	/** 计算最终伤害 */
+	int32 GetFinalDamage() const
+	{
+		return FMath::Max(1, FMath::RoundToInt(BaseDamage * DamageMultiplier));
+	}
+};
+
 /**
  * 投射物Actor
  * 从发射单位水平移动到目标位置，命中时造成伤害
@@ -74,10 +137,22 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Projectile")
 	void Initialize(AUnitActor* Source, FVector Target, int32 DamageAmount);
 
-private:
-	// 检查是否命中目标
-	void CheckHit();
+	// 武器类型
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile")
+	EWeaponType WeaponType;
 
+	// 碰撞检测半径（Sweep检测用）
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile")
+	float CollisionRadius;
+
+	// 最大生存时间（秒，未命中则自毁）
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile")
+	float MaxLifetime;
+
+	// 已存活时间
+	float AliveTime;
+
+private:
 	// 材质实例
 	UPROPERTY()
 	UMaterialInstanceDynamic* ProjectileMaterial;
