@@ -196,6 +196,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Tactical|Turn")
 	bool IsPlayerTurn() const;
 
+	// 是否允许执行操作（己方回合 或 反击阶段）
+	UFUNCTION(BlueprintCallable, Category = "Tactical|Turn")
+	bool IsActionAllowed() const;
+
 private:
 	// 更新鼠标悬停的顶点
 	void UpdateHoveredVertex();

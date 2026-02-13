@@ -449,7 +449,8 @@ void ATacticalGameMode::AITryMove()
 					TGS->StartCounterWindow(ETacticalSeat::Player, SelectedAIUnit);
 					UE_LOG(LogTemp, Log, TEXT("AI triggered Player counter window! %s entered %s's range"),
 						*SelectedAIUnit->UnitName, *PlayerUnit->UnitName);
-					// 暂停AI操作，等待反击窗口结束
+					// 暂停AI操作和超时定时器，等待反击窗口结束
+					World->GetTimerManager().PauseTimer(AITimeoutTimerHandle);
 					return;
 				}
 			}
@@ -610,6 +611,9 @@ void ATacticalGameMode::ResumeAIAfterCounterWindow()
 	if (!World) return;
 
 	UE_LOG(LogTemp, Log, TEXT("ResumeAIAfterCounterWindow: Resuming AI operations"));
+
+	// 恢复AI超时定时器
+	World->GetTimerManager().UnPauseTimer(AITimeoutTimerHandle);
 
 	// 检查移动阶段是否完成
 	if (!bAIMovePhaseDone && AIMoveBudget > 0 && TGS->AIAPCurrent > 0)

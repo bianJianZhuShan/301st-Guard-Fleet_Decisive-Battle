@@ -349,7 +349,7 @@ void ATacticalHUD::DrawMainMenu()
 	DrawText(TEXT("退出"), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f), ButtonX + 20.0f, ButtonY + 14.0f);
 
 	// 版本号显示（左下角）
-	DrawText(TEXT("v0.0.2.2"), FLinearColor(0.4f, 0.4f, 0.5f, 1.0f), 20.0f, Canvas->SizeY - 30.0f);
+	DrawText(TEXT("v0.0.2.3"), FLinearColor(0.4f, 0.4f, 0.5f, 1.0f), 20.0f, Canvas->SizeY - 30.0f);
 }
 
 void ATacticalHUD::SetSelectedUnit(AUnitActor* Unit)
@@ -822,15 +822,26 @@ void ATacticalHUD::DrawActionButtons()
 	// 如果单位已死亡，不显示按钮
 	if (SelectedUnit->bIsDead) return;
 
-	// 判断是否可以操作（己方回合 + 己方单位）
+	// 判断是否可以操作（己方回合或反击阶段 + 己方单位）
 	bool bCanOperate = false;
 	ATacticalPlayerController* TPC = Cast<ATacticalPlayerController>(GetOwningPlayerController());
+	ATacticalGameState* TGS_Btn = GetWorld() ? GetWorld()->GetGameState<ATacticalGameState>() : nullptr;
+	int32 CurrentAP = 0;
 	if (TPC)
 	{
 		bool bIsMyUnit = (TPC->MySeat == ETacticalSeat::Player && !SelectedUnit->bIsEnemy) ||
 		                 (TPC->MySeat == ETacticalSeat::AI && SelectedUnit->bIsEnemy);
-		bCanOperate = bIsMyUnit && TPC->IsPlayerTurn();
+		bCanOperate = bIsMyUnit && TPC->IsActionAllowed();
+		if (TGS_Btn)
+		{
+			CurrentAP = (TPC->MySeat == ETacticalSeat::Player) ? TGS_Btn->PlayerAPCurrent : TGS_Btn->AIAPCurrent;
+		}
 	}
+
+	// AP检查：各按钮是否有足够AP
+	bool bCanMove = bCanOperate && (CurrentAP >= 1);  // 至少1AP才能移动
+	bool bCanAttack = bCanOperate && (CurrentAP >= SelectedUnit->AttackAPCost);
+	bool bCanRotate = bCanOperate;  // 旋转免费
 
 	const float BottomBarHeight = Canvas->SizeY * 0.2f;
 	float ButtonWidth = 120.0f;
@@ -843,13 +854,13 @@ void ATacticalHUD::DrawActionButtons()
 
 	MoveButtonPos = FVector2D(MoveButtonX, ButtonY);
 	MoveButtonSize = FVector2D(ButtonWidth, ButtonHeight);
-	bMoveButtonHovered = bCanOperate && IsMouseInRect(MoveButtonX, ButtonY, ButtonWidth, ButtonHeight);
+	bMoveButtonHovered = bCanMove && IsMouseInRect(MoveButtonX, ButtonY, ButtonWidth, ButtonHeight);
 
 	FLinearColor MoveButtonColor;
 	FLinearColor TextColor(1.0f, 1.0f, 1.0f, 1.0f);
 	float BorderThickness = 2.0f;
 
-	if (!bCanOperate)
+	if (!bCanMove)
 	{
 		MoveButtonColor = FLinearColor(0.15f, 0.15f, 0.18f, 1.0f); // 灰色 - 不可操作
 		TextColor = FLinearColor(0.4f, 0.4f, 0.4f, 1.0f);
@@ -870,7 +881,7 @@ void ATacticalHUD::DrawActionButtons()
 	DrawRect(MoveButtonColor, MoveButtonX, ButtonY, ButtonWidth, ButtonHeight);
 
 	// 边框
-	FLinearColor BorderColor = bCanOperate ? FLinearColor(0.4f, 0.7f, 1.0f, 1.0f) : FLinearColor(0.25f, 0.25f, 0.3f, 1.0f);
+	FLinearColor BorderColor = bCanMove ? FLinearColor(0.4f, 0.7f, 1.0f, 1.0f) : FLinearColor(0.25f, 0.25f, 0.3f, 1.0f);
 	DrawRect(BorderColor, MoveButtonX, ButtonY, ButtonWidth, BorderThickness);
 	DrawRect(BorderColor, MoveButtonX, ButtonY + ButtonHeight - BorderThickness, ButtonWidth, BorderThickness);
 	DrawRect(BorderColor, MoveButtonX, ButtonY, BorderThickness, ButtonHeight);
@@ -884,11 +895,11 @@ void ATacticalHUD::DrawActionButtons()
 
 	AttackButtonPos = FVector2D(AttackButtonX, ButtonY);
 	AttackButtonSize = FVector2D(ButtonWidth, ButtonHeight);
-	bAttackButtonHovered = bCanOperate && IsMouseInRect(AttackButtonX, ButtonY, ButtonWidth, ButtonHeight);
+	bAttackButtonHovered = bCanAttack && IsMouseInRect(AttackButtonX, ButtonY, ButtonWidth, ButtonHeight);
 
 	FLinearColor AttackButtonColor;
-	FLinearColor AttackTextColor = bCanOperate ? FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) : FLinearColor(0.4f, 0.4f, 0.4f, 1.0f);
-	if (!bCanOperate)
+	FLinearColor AttackTextColor = bCanAttack ? FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) : FLinearColor(0.4f, 0.4f, 0.4f, 1.0f);
+	if (!bCanAttack)
 	{
 		AttackButtonColor = FLinearColor(0.15f, 0.15f, 0.18f, 1.0f); // 灰色 - 不可操作
 	}
@@ -908,7 +919,7 @@ void ATacticalHUD::DrawActionButtons()
 	DrawRect(AttackButtonColor, AttackButtonX, ButtonY, ButtonWidth, ButtonHeight);
 
 	// 边框
-	FLinearColor AttackBorderColor = bCanOperate ? FLinearColor(1.0f, 0.5f, 0.5f, 1.0f) : FLinearColor(0.25f, 0.25f, 0.3f, 1.0f);
+	FLinearColor AttackBorderColor = bCanAttack ? FLinearColor(1.0f, 0.5f, 0.5f, 1.0f) : FLinearColor(0.25f, 0.25f, 0.3f, 1.0f);
 	DrawRect(AttackBorderColor, AttackButtonX, ButtonY, ButtonWidth, BorderThickness);
 	DrawRect(AttackBorderColor, AttackButtonX, ButtonY + ButtonHeight - BorderThickness, ButtonWidth, BorderThickness);
 	DrawRect(AttackBorderColor, AttackButtonX, ButtonY, BorderThickness, ButtonHeight);
@@ -922,11 +933,11 @@ void ATacticalHUD::DrawActionButtons()
 
 	RotateButtonPos = FVector2D(RotateButtonX, ButtonY);
 	RotateButtonSize = FVector2D(ButtonWidth, ButtonHeight);
-	bRotateButtonHovered = bCanOperate && IsMouseInRect(RotateButtonX, ButtonY, ButtonWidth, ButtonHeight);
+	bRotateButtonHovered = bCanRotate && IsMouseInRect(RotateButtonX, ButtonY, ButtonWidth, ButtonHeight);
 
 	FLinearColor RotateButtonColor;
-	FLinearColor RotateTextColor = bCanOperate ? FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) : FLinearColor(0.4f, 0.4f, 0.4f, 1.0f);
-	if (!bCanOperate)
+	FLinearColor RotateTextColor = bCanRotate ? FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) : FLinearColor(0.4f, 0.4f, 0.4f, 1.0f);
+	if (!bCanRotate)
 	{
 		RotateButtonColor = FLinearColor(0.15f, 0.15f, 0.18f, 1.0f); // 灰色 - 不可操作
 	}
@@ -946,7 +957,7 @@ void ATacticalHUD::DrawActionButtons()
 	DrawRect(RotateButtonColor, RotateButtonX, ButtonY, ButtonWidth, ButtonHeight);
 
 	// 边框
-	FLinearColor RotateBorderColor = bCanOperate ? FLinearColor(0.9f, 0.8f, 0.4f, 1.0f) : FLinearColor(0.25f, 0.25f, 0.3f, 1.0f);
+	FLinearColor RotateBorderColor = bCanRotate ? FLinearColor(0.9f, 0.8f, 0.4f, 1.0f) : FLinearColor(0.25f, 0.25f, 0.3f, 1.0f);
 	DrawRect(RotateBorderColor, RotateButtonX, ButtonY, ButtonWidth, BorderThickness);
 	DrawRect(RotateBorderColor, RotateButtonX, ButtonY + ButtonHeight - BorderThickness, ButtonWidth, BorderThickness);
 	DrawRect(RotateBorderColor, RotateButtonX, ButtonY, BorderThickness, ButtonHeight);
@@ -1433,7 +1444,7 @@ void ATacticalHUD::DrawRightPanel()
 
 void ATacticalHUD::DrawUnitHoverInfo()
 {
-	if (!Canvas || !HoveredUnit || HoveredUnit->bIsDead) return;
+	if (!Canvas || !HoveredUnit) return;
 
 	// 获取单位屏幕位置
 	APlayerController* PC = GetOwningPlayerController();
@@ -1442,10 +1453,18 @@ void ATacticalHUD::DrawUnitHoverInfo()
 	FVector2D ScreenPos;
 	if (!PC->ProjectWorldLocationToScreen(HoveredUnit->GetActorLocation(), ScreenPos)) return;
 
-	// 在单位旁边显示名称和血量
 	const float OffsetX = 30.0f;
 	const float OffsetY = -20.0f;
 
+	if (HoveredUnit->bIsDead)
+	{
+		// 被击毁的舰船显示特殊信息
+		FString DestroyedText = FString::Printf(TEXT("被击毁的%s"), *HoveredUnit->UnitName);
+		DrawText(DestroyedText, FLinearColor(0.5f, 0.5f, 0.5f, 1.0f), ScreenPos.X + OffsetX, ScreenPos.Y + OffsetY);
+		return;
+	}
+
+	// 在单位旁边显示名称和血量
 	DrawText(HoveredUnit->UnitName, FLinearColor(1.0f, 1.0f, 1.0f, 1.0f), ScreenPos.X + OffsetX, ScreenPos.Y + OffsetY);
 	
 	FString HPText = FString::Printf(TEXT("HP: %d/%d"), HoveredUnit->Health, HoveredUnit->MaxHealth);
@@ -1481,29 +1500,28 @@ void ATacticalHUD::DrawAttackIndicators()
 		// 投影到屏幕坐标
 		FVector UnitWorldPos = Unit->GetActorLocation();
 		FVector2D ScreenPos;
-		if (!TPC->ProjectWorldLocationToScreen(UnitWorldPos + FVector(0, 0, 150.0f), ScreenPos)) continue;
+		if (!TPC->ProjectWorldLocationToScreen(UnitWorldPos + FVector(0, 0, 200.0f), ScreenPos)) continue;
 
-		// 绘制红色向下箭头 ▼
-		const float ArrowSize = 12.0f;
-		const FLinearColor ArrowColor(1.0f, 0.2f, 0.2f, 1.0f);
+		// 绘制醒目的红色向下箭头 ▼（大号+半透明背景）
+		const float ArrowSize = 18.0f;
+		const FLinearColor ArrowColor(1.0f, 0.15f, 0.15f, 1.0f);
 
-		// 箭头三角形（用三条粗线模拟）
 		float Ax = ScreenPos.X;
 		float Ay = ScreenPos.Y;
 
-		// 绘制一个向下指的三角形箭头
-		// 顶部横线
-		DrawRect(ArrowColor, Ax - ArrowSize, Ay, ArrowSize * 2.0f, 3.0f);
-		// 逐行缩小模拟三角形
+		// 半透明黑色背景增强可读性
+		DrawRect(FLinearColor(0.0f, 0.0f, 0.0f, 0.4f), Ax - ArrowSize - 4, Ay - 2, (ArrowSize + 4) * 2.0f, ArrowSize + 28.0f);
+
+		// 向下指的三角形箭头（逐行缩小）
 		for (float Row = 0; Row < ArrowSize; Row += 2.0f)
 		{
 			float Ratio = 1.0f - (Row / ArrowSize);
 			float HalfWidth = ArrowSize * Ratio;
-			DrawRect(ArrowColor, Ax - HalfWidth, Ay + 3.0f + Row, HalfWidth * 2.0f, 2.0f);
+			DrawRect(ArrowColor, Ax - HalfWidth, Ay + Row, HalfWidth * 2.0f, 2.5f);
 		}
 
 		// 在箭头下方显示"可攻击"文字
-		DrawText(TEXT("可攻击"), ArrowColor, Ax - 20.0f, Ay + ArrowSize + 8.0f);
+		DrawText(TEXT("可攻击"), ArrowColor, Ax - 20.0f, Ay + ArrowSize + 4.0f);
 	}
 }
 

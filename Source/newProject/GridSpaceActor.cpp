@@ -669,11 +669,11 @@ void AGridSpaceActor::DrawHighlightedVertices()
 				// 攻击模式：检查视线
 				if (bIsBlocked)
 				{
-					HighlightVertexColor = FColor(220, 180, 50, 200);  // 黄色 - 视线被阻挡
+					HighlightVertexColor = FColor(220, 180, 50, 140);  // 黄色 - 视线被阻挡（半透明）
 				}
 				else
 				{
-					HighlightVertexColor = FColor(220, 80, 80, 200);   // 红色 - 可攻击
+					HighlightVertexColor = FColor(220, 80, 80, 140);   // 红色 - 可攻击（半透明）
 				}
 			}
 
@@ -1127,7 +1127,8 @@ EUnitType AGridSpaceActor::GetShipTypeFromName(const FString& ShipName) const
 	{
 		return EUnitType::BattleCruiser;
 	}
-	else if (ShipName.Contains(TEXT("超级战列")) || ShipName.Contains(TEXT("超战")))
+	else if (ShipName.Contains(TEXT("超级战列")) || ShipName.Contains(TEXT("超战"))
+		|| ShipName.Contains(TEXT("战列舰")))
 	{
 		return EUnitType::SuperBattleship;
 	}

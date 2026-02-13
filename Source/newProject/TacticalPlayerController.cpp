@@ -659,7 +659,7 @@ void ATacticalPlayerController::OnLeftMouseClick()
 		}
 	}
 
-	if (!IsPlayerTurn())
+	if (!IsActionAllowed())
 	{
 		return;
 	}
@@ -1302,9 +1302,9 @@ void ATacticalPlayerController::UpdateHoveredVertex()
 
 void ATacticalPlayerController::OnMoveButtonClicked()
 {
-	UE_LOG(LogTemp, Log, TEXT("OnMoveButtonClicked called, IsPlayerTurn=%d, SelectedUnit=%s"), 
-		IsPlayerTurn(), SelectedUnit ? *SelectedUnit->UnitName : TEXT("null"));
-	if (!IsPlayerTurn()) return;
+	UE_LOG(LogTemp, Log, TEXT("OnMoveButtonClicked called, IsActionAllowed=%d, SelectedUnit=%s"), 
+		IsActionAllowed(), SelectedUnit ? *SelectedUnit->UnitName : TEXT("null"));
+	if (!IsActionAllowed()) return;
 	if (!SelectedUnit || SelectedUnit->bIsDead) return;
 
 	// 切换移动模式
@@ -1334,7 +1334,7 @@ void ATacticalPlayerController::OnMoveButtonClicked()
 
 void ATacticalPlayerController::OnAttackButtonClicked()
 {
-	if (!IsPlayerTurn()) return;
+	if (!IsActionAllowed()) return;
 	if (!SelectedUnit || SelectedUnit->bIsDead) return;
 
 	// 切换攻击模式
@@ -1357,7 +1357,7 @@ void ATacticalPlayerController::OnAttackButtonClicked()
 
 void ATacticalPlayerController::OnRotateButtonClicked()
 {
-	if (!IsPlayerTurn()) return;
+	if (!IsActionAllowed()) return;
 	if (!SelectedUnit || SelectedUnit->bIsDead) return;
 
 	// 切换旋转模式
@@ -1372,7 +1372,7 @@ void ATacticalPlayerController::OnRotateButtonClicked()
 
 void ATacticalPlayerController::ExecuteAttack(FVector TargetPosition, AActor* TargetActor)
 {
-	if (!IsPlayerTurn()) return;
+	if (!IsActionAllowed()) return;
 	if (!SelectedUnit || SelectedUnit->bIsDead) return;
 
 	// 检查视线是否被阻挡（排除攻击者自身，目标Actor不算阻挡）
@@ -1495,4 +1495,20 @@ bool ATacticalPlayerController::IsPlayerTurn() const
 
 	// 检查当前回合是否属于此玩家的坐席
 	return TGS->CurrentSeat == MySeat;
+}
+
+bool ATacticalPlayerController::IsActionAllowed() const
+{
+	// 己方回合可以操作
+	if (IsPlayerTurn()) return true;
+
+	// 反击阶段：反击方可以操作
+	const UWorld* World = GetWorld();
+	if (!World) return false;
+	const ATacticalGameState* TGS = World->GetGameState<ATacticalGameState>();
+	if (TGS && TGS->bIsInCounterWindow && TGS->CounterSeat == MySeat)
+	{
+		return true;
+	}
+	return false;
 }
