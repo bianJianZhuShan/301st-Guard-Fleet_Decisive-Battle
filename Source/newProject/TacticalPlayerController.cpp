@@ -590,11 +590,12 @@ void ATacticalPlayerController::Tick(float DeltaTime)
 		}
 	}
 
-	// 更新反击窗口计时器
+	// 更新计时器（回合计时 + 反击窗口）
 	if (ATacticalGameState* TGS = GetWorld() ? GetWorld()->GetGameState<ATacticalGameState>() : nullptr)
 	{
 		if (HasAuthority())  // 只在服务器更新
 		{
+			TGS->TickTurnTimer(DeltaTime);
 			TGS->TickCounterWindow(DeltaTime);
 		}
 

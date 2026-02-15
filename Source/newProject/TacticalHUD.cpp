@@ -690,7 +690,31 @@ void ATacticalHUD::DrawTopSeatInfo()
 	// ========== 中间回合信息 ==========
 	FString TurnText = FString::Printf(TEXT("回合 %d"), TGS->TurnNumber);
 	float TurnTextX = Canvas->SizeX * 0.5f - 40.0f;
-	DrawText(TurnText, FLinearColor(0.85f, 0.9f, 1.0f, 1.0f), TurnTextX, 15.0f);
+	DrawText(TurnText, FLinearColor(0.85f, 0.9f, 1.0f, 1.0f), TurnTextX, 10.0f);
+
+	// 回合倒计时
+	float TimeLeft = FMath::Max(0.0f, TGS->TurnTimeRemaining);
+	FLinearColor TimerColor;
+	if (TGS->bTurnTimerPaused)
+	{
+		TimerColor = FLinearColor(0.6f, 0.6f, 0.3f, 1.0f);  // 暂停-黄色
+	}
+	else if (TimeLeft <= 5.0f)
+	{
+		TimerColor = FLinearColor(1.0f, 0.3f, 0.3f, 1.0f);  // 紧急-红色
+	}
+	else if (TimeLeft <= 10.0f)
+	{
+		TimerColor = FLinearColor(1.0f, 0.8f, 0.3f, 1.0f);  // 警告-橙色
+	}
+	else
+	{
+		TimerColor = FLinearColor(0.7f, 0.9f, 1.0f, 1.0f);  // 正常-白蓝
+	}
+	FString TimerText = TGS->bTurnTimerPaused ?
+		FString::Printf(TEXT("[ %.0f s ] 暂停"), FMath::CeilToFloat(TimeLeft)) :
+		FString::Printf(TEXT("[ %.0f s ]"), FMath::CeilToFloat(TimeLeft));
+	DrawText(TimerText, TimerColor, TurnTextX - 10.0f, 30.0f);
 
 	// ========== 回归初始视角按钮 ==========
 	float ResetBtnWidth = 120.0f;

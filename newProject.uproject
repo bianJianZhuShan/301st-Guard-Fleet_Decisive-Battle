@@ -7,7 +7,10 @@
 		{
 			"Name": "newProject",
 			"Type": "Runtime",
-			"LoadingPhase": "Default"
+			"LoadingPhase": "Default",
+			"AdditionalDependencies": [
+				"UMGEditor"
+			]
 		}
 	],
 	"Plugins": [

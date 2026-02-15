@@ -151,6 +151,26 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Tactical|Economy")
 	void ApplySecondSeatCounterBonusIfNeeded();
 
+	// ========== 回合计时器 ==========
+
+	/** 每回合时间限制（秒） */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Tactical|Turn")
+	float TurnTimeLimit = 30.0f;
+
+	/** 当前回合剩余时间 */
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Tactical|Turn")
+	float TurnTimeRemaining = 30.0f;
+
+	/** 回合计时器是否暂停（反击阶段暂停对方计时） */
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Tactical|Turn")
+	bool bTurnTimerPaused = false;
+
+	/** 每帧更新回合计时器 */
+	void TickTurnTimer(float DeltaTime);
+
+	/** 重置回合计时器（回合开始时调用） */
+	void ResetTurnTimer();
+
 	// ========== 反击窗口系统 ==========
 
 	/** 是否处于反击窗口 */
@@ -186,4 +206,7 @@ public:
 
 private:
 	bool bSecondSeatCounterBonusApplied = false;
+
+	/** 回合超时自动结束回合 */
+	void OnTurnTimerExpired();
 };

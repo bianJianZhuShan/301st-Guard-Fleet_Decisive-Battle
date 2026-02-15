@@ -107,6 +107,7 @@ void ATacticalGameMode::StartTurn(ETacticalSeat Seat)
 	TGS->CurrentSeat = Seat;
 	TGS->RefillForSeat(Seat);
 	TGS->ApplySecondSeatCounterBonusIfNeeded();
+	TGS->ResetTurnTimer();
 
 	UE_LOG(LogTemp, Log, TEXT("TurnStart: Turn=%d Seat=%s"),
 		TGS->TurnNumber,

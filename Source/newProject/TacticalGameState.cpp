@@ -36,6 +36,10 @@ void ATacticalGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& O
 	DOREPLIFETIME(ATacticalGameState, AIAPCurrent);
 	DOREPLIFETIME(ATacticalGameState, AICounterMax);
 	DOREPLIFETIME(ATacticalGameState, AICounterCurrent);
+
+	// 回合计时器同步
+	DOREPLIFETIME(ATacticalGameState, TurnTimeRemaining);
+	DOREPLIFETIME(ATacticalGameState, bTurnTimerPaused);
 }
 
 static int32 CalcAPMaxForTurn(int32 TurnNumber)
@@ -206,6 +210,9 @@ void ATacticalGameState::StartCounterWindow(ETacticalSeat InCounterSeat, AUnitAc
 	CounterTriggerUnit = TriggerUnit;
 	CounterWindowTimeRemaining = CounterWindowTimeout;
 
+	// 暂停对方回合计时器（反击不占用对方时间）
+	bTurnTimerPaused = true;
+
 	UE_LOG(LogTemp, Log, TEXT("StartCounterWindow: %s has %.1f seconds to counter"),
 		InCounterSeat == ETacticalSeat::Player ? TEXT("Player") : TEXT("AI"),
 		CounterWindowTimeout);
@@ -255,7 +262,47 @@ void ATacticalGameState::EndCounterWindow()
 	CounterTriggerUnit = nullptr;
 	CounterWindowTimeRemaining = 0.0f;
 
-	UE_LOG(LogTemp, Log, TEXT("EndCounterWindow: Counter window ended"));
+	// 恢复对方回合计时器
+	bTurnTimerPaused = false;
+
+	UE_LOG(LogTemp, Log, TEXT("EndCounterWindow: Counter window ended, turn timer resumed (%.1fs remaining)"), TurnTimeRemaining);
+}
+
+// ========== 回合计时器 ==========
+
+void ATacticalGameState::ResetTurnTimer()
+{
+	TurnTimeRemaining = TurnTimeLimit;
+	bTurnTimerPaused = false;
+	UE_LOG(LogTemp, Log, TEXT("ResetTurnTimer: %.1f seconds"), TurnTimeLimit);
+}
+
+void ATacticalGameState::TickTurnTimer(float DeltaTime)
+{
+	if (bTurnTimerPaused) return;
+	if (TurnTimeRemaining <= 0.0f) return;
+
+	TurnTimeRemaining -= DeltaTime;
+	if (TurnTimeRemaining <= 0.0f)
+	{
+		TurnTimeRemaining = 0.0f;
+		OnTurnTimerExpired();
+	}
+}
+
+void ATacticalGameState::OnTurnTimerExpired()
+{
+	UE_LOG(LogTemp, Log, TEXT("OnTurnTimerExpired: %s's turn timed out!"),
+		CurrentSeat == ETacticalSeat::Player ? TEXT("Player") : TEXT("AI"));
+
+	// 通知GameMode结束回合
+	if (UWorld* World = GetWorld())
+	{
+		if (ATacticalGameMode* GM = Cast<ATacticalGameMode>(World->GetAuthGameMode()))
+		{
+			GM->EndTurn();
+		}
+	}
 }
 
 void ATacticalGameState::TickCounterWindow(float DeltaTime)
